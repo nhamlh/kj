@@ -49,15 +49,45 @@ func main() {
 				panic(err.Error())
 			}
 
-			jobs, err := clientset.BatchV1().Jobs("").List(context.TODO(), metav1.ListOptions{})
+
+			ns, err := cmd.Flags().GetString("namespace")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if !ensureNamespace(ns, clientset) {
+				log.Fatal(fmt.Printf("Namespace %s not found", ns))
+			}
+
+
+			jobs, err := clientset.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				panic(err.Error())
 			}
-			fmt.Printf("There are %d jobs in the cluster\n", len(jobs.Items))
+
+			for _, j := range jobs.Items {
+				fmt.Println(j.Name)
+			}
 		},
 	}
 
 	cli.PersistentFlags().StringP("kubeconfig", "", "", "Path to kubeconfig file")
+	cli.PersistentFlags().StringP("namespace", "n", "default", "Namespace to get jobs from")
 
 	cli.Execute()
+}
+
+func ensureNamespace(namespace string, clientset *kubernetes.Clientset) bool {
+	ns, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	for _, n := range ns.Items {
+		if n.Name == namespace {
+			return true
+		}
+	}
+
+	return false
 }
