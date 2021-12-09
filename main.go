@@ -47,21 +47,21 @@ func main() {
 
 			kubeconfig, err := clientcmd.BuildConfigFromFlags("", configFile)
 			if err != nil {
-				panic(err.Error())
+				log.Fatal(err.Error())
 			}
 
 			clientset, err := kubernetes.NewForConfig(kubeconfig)
 			if err != nil {
-				panic(err.Error())
+				log.Fatal(err.Error())
 			}
 
 			if !ensureNamespace(ns, clientset) {
-				log.Fatal(fmt.Printf("Namespace %s not found", ns))
+				log.Fatal(fmt.Sprintf("Namespace %s not found", ns))
 			}
 
 			jobs, err := clientset.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
-				panic(err.Error())
+				log.Fatal(err.Error())
 			}
 
 			records := [][]string{}
@@ -72,7 +72,7 @@ func main() {
 			}
 
 			if err := saveTo(outFile, records); err != nil {
-				log.Fatal(err)
+				log.Fatal(err.Error())
 			}
 		},
 	}
@@ -87,7 +87,7 @@ func main() {
 func ensureNamespace(namespace string, clientset *kubernetes.Clientset) bool {
 	ns, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		panic(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	for _, n := range ns.Items {
