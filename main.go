@@ -13,14 +13,6 @@ import (
 	"context"
 )
 
-var getCmd = &cobra.Command{
-	Use:   "get",
-	Short: "Get jobs from a namespace",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("hello world")
-	},
-}
-
 func main() {
 	cli := cobra.Command{
 		Use:   "kj",
