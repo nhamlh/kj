@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -58,7 +59,9 @@ func main() {
 			}
 
 			for _, j := range jobs.Items {
-				fmt.Println(j.Name)
+				if isValidJob(j) {
+					fmt.Println(transformJob(j))
+				}
 			}
 		},
 	}
@@ -82,4 +85,31 @@ func ensureNamespace(namespace string, clientset *kubernetes.Clientset) bool {
 	}
 
 	return false
+}
+
+// Completed successfully
+func isValidJob(job batchv1.Job) bool {
+	// job.Status.Conditions[0].Status
+	containers := len(job.Spec.Template.Spec.Containers)
+
+	isCompleted := false
+	if !job.Status.CompletionTime.IsZero() {
+		isCompleted = true
+	}
+
+	if isCompleted && job.Status.Succeeded == int32(containers) {
+		return true
+	} else {
+		return false
+	}
+}
+
+// transformJob returns a CSV-row format of a job's information
+// this function presume job is completed
+func transformJob(job batchv1.Job) string {
+	job_id := job.Name
+	start_time := job.Status.StartTime.Time
+	duration := job.Status.CompletionTime.Sub(start_time)
+
+	return fmt.Sprintf("%s,%s,%s", job_id, start_time, duration)
 }
