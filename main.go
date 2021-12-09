@@ -1,17 +1,20 @@
 package main
 
 import (
+	"context"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"context"
 )
 
 func main() {
@@ -20,6 +23,16 @@ func main() {
 		Short: "Get jobs from a namespace",
 		Run: func(cmd *cobra.Command, args []string) {
 			k, err := cmd.Flags().GetString("kubeconfig")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			ns, err := cmd.Flags().GetString("namespace")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			outFile, err := cmd.Flags().GetString("output")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -42,32 +55,31 @@ func main() {
 				panic(err.Error())
 			}
 
-
-			ns, err := cmd.Flags().GetString("namespace")
-			if err != nil {
-				log.Fatal(err)
-			}
-
 			if !ensureNamespace(ns, clientset) {
 				log.Fatal(fmt.Printf("Namespace %s not found", ns))
 			}
-
 
 			jobs, err := clientset.BatchV1().Jobs(ns).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				panic(err.Error())
 			}
 
+			records := [][]string{}
 			for _, j := range jobs.Items {
 				if isValidJob(j) {
-					fmt.Println(transformJob(j))
+					records = append(records, transformJob(j))
 				}
+			}
+
+			if err := saveTo(outFile, records); err != nil {
+				log.Fatal(err)
 			}
 		},
 	}
 
-	cli.PersistentFlags().StringP("kubeconfig", "", "", "Path to kubeconfig file")
+	cli.PersistentFlags().StringP("kubeconfig", "k", "", "Path to kubeconfig file")
 	cli.PersistentFlags().StringP("namespace", "n", "default", "Namespace to get jobs from")
+	cli.PersistentFlags().StringP("output", "o", "stdout", "Save to file")
 
 	cli.Execute()
 }
@@ -106,10 +118,37 @@ func isValidJob(job batchv1.Job) bool {
 
 // transformJob returns a CSV-row format of a job's information
 // this function presume job is completed
-func transformJob(job batchv1.Job) string {
+func transformJob(job batchv1.Job) []string {
 	job_id := job.Name
 	start_time := job.Status.StartTime.Time
 	duration := job.Status.CompletionTime.Sub(start_time)
 
-	return fmt.Sprintf("%s,%s,%s", job_id, start_time, duration)
+	return []string{job_id, start_time.String(), duration.String()}
+}
+
+func saveTo(outFile string, records [][]string) error {
+	var f io.Writer
+
+	if outFile == "stdout" {
+		f = os.Stdout
+	} else {
+    	if _, err := os.Stat(outFile); !os.IsNotExist(err) {
+    		return fmt.Errorf("File %s already exist.", outFile)
+    	}
+
+		var err error
+    	f, err = os.Create(outFile)
+    	if err != nil {
+    		return fmt.Errorf("Error openning file for writing: %v", err)
+    	}
+	}
+
+	w := csv.NewWriter(f)
+	w.WriteAll(records)
+
+	if err := w.Error(); err != nil {
+		return fmt.Errorf("Error writing records to file: %v", err)
+	}
+
+	return nil
 }
