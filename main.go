@@ -55,7 +55,7 @@ func main() {
 				log.Fatal(err.Error())
 			}
 
-			if !ensureNamespace(ns, clientset) {
+			if !namespaceExists(ns, clientset) {
 				log.Fatal(fmt.Sprintf("Namespace %s not found", ns))
 			}
 
@@ -84,7 +84,7 @@ func main() {
 	cli.Execute()
 }
 
-func ensureNamespace(namespace string, clientset *kubernetes.Clientset) bool {
+func namespaceExists(namespace string, clientset *kubernetes.Clientset) bool {
 	ns, err := clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Fatal(err.Error())
