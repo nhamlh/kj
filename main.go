@@ -132,15 +132,15 @@ func saveTo(outFile string, records [][]string) error {
 	if outFile == "stdout" {
 		f = os.Stdout
 	} else {
-    	if _, err := os.Stat(outFile); !os.IsNotExist(err) {
-    		return fmt.Errorf("File %s already exist.", outFile)
-    	}
+		if _, err := os.Stat(outFile); !os.IsNotExist(err) {
+			return fmt.Errorf("File %s already exist.", outFile)
+		}
 
 		var err error
-    	f, err = os.Create(outFile)
-    	if err != nil {
-    		return fmt.Errorf("Error openning file for writing: %v", err)
-    	}
+		f, err = os.Create(outFile)
+		if err != nil {
+			return fmt.Errorf("Error openning file for writing: %v", err)
+		}
 	}
 
 	w := csv.NewWriter(f)
